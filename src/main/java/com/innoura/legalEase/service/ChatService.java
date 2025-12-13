@@ -1,15 +1,45 @@
 package com.innoura.legalEase.service;
 
+import com.innoura.legalEase.dbservice.DbService;
+import com.innoura.legalEase.entity.FileDetail;
 import com.innoura.legalEase.entity.Prompt;
 import com.innoura.legalEase.enums.FileType;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.stereotype.Service;
 
 @Service
+@Slf4j
 public class ChatService
 {
+    private final DbService dbService;
+    private final AiCallService aiCallService;
+
+    public ChatService(DbService dbService, AiCallService aiCallService)
+    {
+        this.dbService = dbService;
+        this.aiCallService = aiCallService;
+    }
+
     public String getAnswer(String caseId, FileType fileType, String question)
     {
-       // Prompt prompt =
-        return null;
+        Query query = new Query(Criteria.where(Prompt.Fields.fileType).is(FileType.QA));
+        Prompt prompt = dbService.findOne(query, Prompt.class);
+        if (prompt == null) {
+            log.error("no prompt found in the db for the QA for caseId :{}", caseId);
+            return null;
+        }
+        query = new Query(Criteria.where(FileDetail.Fields.caseId).is(caseId));
+        //;add type hjhjwbecjpihb
+        FileDetail fileDetail = dbService.findOne(query, FileDetail.class);
+        if(fileDetail == null || fileDetail.getFullContent() == null)
+        {
+            log.error("file detail is suspicious for caseId : {}, fileDetail :{}", caseId, fileDetail);
+            return null;
+        }
+
+     return  aiCallService.getGptResponse("content" + fileDetail.getFullContent() + "\n Question : \n" +question, prompt);
+
     }
 }
