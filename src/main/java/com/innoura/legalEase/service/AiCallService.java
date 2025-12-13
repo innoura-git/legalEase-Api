@@ -40,9 +40,10 @@ public class AiCallService
         this.responseProcessHelper = responseProcessHelper;
     }
 
-    public String getGptResponse(String content, Prompt prompt)
-    {
+    public String getGptResponse(String content, Prompt prompt) {
+        log.info("Entering file process for : {}", prompt.getFileType());
         int retryCount = 0;
+
         while (retryCount < MAX_RETRIES) {
             try {
                 HttpHeaders headers = new HttpHeaders();
@@ -51,70 +52,69 @@ public class AiCallService
 
                 Map<String, Object> body = new HashMap<>();
 
-                body.put("model", "gpt-5-mini");
-
-                // messages list
+                // ---- CHAT COMPLETIONS PAYLOAD ----
                 List<Map<String, String>> messages = new ArrayList<>();
+
+                if (prompt.getFileType().name().equals("AUDIO"))
+                {
+                    log.info("System prompt : {}",prompt.getSystemPrompt());
+                    log.info("User prompt : {}",content);
+                }
                 messages.add(Map.of(
                         "role", "system",
                         "content", prompt.getSystemPrompt()
                 ));
+
                 messages.add(Map.of(
                         "role", "user",
                         "content", content
                 ));
+
                 body.put("messages", messages);
 
-                // reasoning effort
-                Map<String, Object> reasoning = new HashMap<>();
-                reasoning.put("effort", "high");  // deeper reasoning
-                body.put("reasoning", reasoning);
+                body.put("max_completion_tokens", 128000);
 
-                // verbosity control to make output more detailed
-                Map<String, Object> textParams = new HashMap<>();
-                textParams.put("verbosity", "high");
-                body.put("text", textParams);
-
-                // optional: max output tokens
-                body.put("max_output_tokens", 128000);
-
-
-                HttpEntity<Map<String, Object>> requestEntity = new HttpEntity<>(body, headers);
+                HttpEntity<Map<String, Object>> requestEntity =
+                        new HttpEntity<>(body, headers);
 
                 ResponseEntity<String> response = restTemplate.exchange(
-                        prompt.getUrl(),
+                        prompt.getUrl(),   // .../chat/completions
                         HttpMethod.POST,
                         requestEntity,
                         String.class
                 );
 
                 JsonNode root = objectMapper.readTree(response.getBody());
-                JsonNode choicesNode = root.path("choices");
-                JsonNode firstChoice = choicesNode.get(0);
-                JsonNode messageNode = firstChoice.path("message");
 
-                JsonNode contentNode = messageNode.path("content");
-                log.info("AI Response for type : {} ",prompt.getFileType().name());
-                log.info("AI Response {} ",contentNode.asText());
+                // ---- STANDARD CHAT COMPLETIONS READ ----
+                String result = root
+                        .path("choices")
+                        .get(0)
+                        .path("message")
+                        .path("content")
+                        .asText();
 
-                return contentNode.asText();
+                log.info("AI Response for type : {}", prompt.getFileType().name());
+                log.info("AI Response {}", result);
+
+                return result;
             }
             catch (Exception e) {
                 retryCount++;
                 if (retryCount < MAX_RETRIES) {
                     try {
                         Thread.sleep(RETRY_DELAY_MS);
-                    }
-                    catch (InterruptedException ie) {
+                    } catch (InterruptedException ie) {
                         Thread.currentThread().interrupt();
                         return "Request interrupted";
                     }
-                }
-                else {
+                } else {
+                    log.info("Exception for file type : {} Error : {}",prompt.getFileType(),e.getMessage());
                     return "Failed to get response after retries. Error: " + e.getMessage();
                 }
             }
         }
+
         return "Failed to get response after retries.";
     }
 
