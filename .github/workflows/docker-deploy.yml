@@ -120,7 +120,7 @@ jobs:
             docker run -d \
               --name ${CONTAINER_NAME} \
               --restart unless-stopped \
-              -p 8080:8080 \
+              -p 8081:8081 \
               ${IMAGE}
             
             # Verify container is running

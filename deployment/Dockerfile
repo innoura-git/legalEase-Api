@@ -26,10 +26,13 @@ WORKDIR /app
 RUN addgroup -g 1001 -S appgroup && \
     adduser -u 1001 -S appuser -G appgroup
 
+# Create file upload directory (ephemeral - lost on container restart)
+RUN mkdir -p /app/files
+
 # Copy the built JAR from builder stage
 COPY --from=builder /app/target/*.jar app.jar
 
-# Set correct permissions
+# Set correct permissions (including files directory)
 RUN chown -R appuser:appgroup /app
 
 # Switch to non-root user
@@ -39,11 +42,11 @@ USER appuser
 ENV JAVA_OPTS="-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -XX:+UseG1GC"
 
 # Expose port
-EXPOSE 8080
+EXPOSE 8081
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:8080/actuator/health || exit 1
+    CMD wget --no-verbose --tries=1 --spider http://localhost:8081/actuator/health || exit 1
 
 # Build arguments for metadata
 ARG BUILD_DATE
