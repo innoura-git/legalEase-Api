@@ -9,7 +9,6 @@ import com.innoura.legalEase.entity.Prompt;
 import com.innoura.legalEase.enums.FileType;
 import com.innoura.legalEase.utils.FileContainerUtils;
 import lombok.extern.slf4j.Slf4j;
-import org.bson.json.JsonParseException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
@@ -210,15 +209,15 @@ public class FileProcessService
     {
         log.info("Processing PDF file: {}", fileContainer.getFileName());
         String pdfFileContent = contentExtractionService.extractPdfAsString(fileContainer);
-//        Query query = new Query(Criteria.where(Prompt.Fields.fileType).is(FileType.PDF));
-//        Prompt prompt = dbService.findOne(query, Prompt.class);
-//        String summarizedContent = aiCallService.getGptResponse(pdfFileContent,prompt);
+        Query query = new Query(Criteria.where(Prompt.Fields.fileType).is(FileType.PDF));
+        Prompt prompt = dbService.findOne(query, Prompt.class);
+        String summarizedContent = aiCallService.getGptResponse(pdfFileContent,prompt);
         FileDetail fileDetail = new FileDetail();
         fileDetail.setCaseId(fileContainer.getCaseId())
                 .setFilePath(filePath)
                 .setFileType(FileType.PDF)
-                .setFullContent(pdfFileContent);
-                //.setSummarizedContent(summarizedContent);
+                .setFullContent(pdfFileContent)
+                .setSummarizedContent(summarizedContent);
         dbService.save(fileDetail, FileDetail.class.getSimpleName());
         log.info("pdf file content saved for the caseId :{}", fileContainer.getCaseId());
     }
@@ -226,15 +225,15 @@ public class FileProcessService
     private void processExcelFile(FileContainerDto fileContainer, String filePath) throws IOException {
         log.info("Processing Excel file: {}", fileContainer.getFileName());
         String excelFileContent = contentExtractionService.extractExcelAsString(fileContainer);
-//        Query query = new Query(Criteria.where(Prompt.Fields.fileType).is(FileType.EXCEL));
-//        Prompt prompt = dbService.findOne(query, Prompt.class);
-//        String summarizedContent = aiCallService.getGptResponse(excelFileContent, prompt);
+        Query query = new Query(Criteria.where(Prompt.Fields.fileType).is(FileType.EXCEL));
+        Prompt prompt = dbService.findOne(query, Prompt.class);
+        String summarizedContent = aiCallService.getGptResponse(excelFileContent, prompt);
         FileDetail fileDetail = new FileDetail();
         fileDetail.setCaseId(fileContainer.getCaseId())
                 .setFilePath(filePath)
                 .setFileType(FileType.EXCEL)
-                .setFullContent(excelFileContent);
-               // .setSummarizedContent(summarizedContent);
+                .setFullContent(excelFileContent)
+                .setSummarizedContent(summarizedContent);
         dbService.save(fileDetail, FileDetail.class.getSimpleName());
         log.info("excel file content saved for the caseId :{}", fileContainer.getCaseId());
     }
@@ -246,13 +245,14 @@ public class FileProcessService
         Prompt prompt = dbService.findOne(query, Prompt.class);
 
         String fullMp3Content = azureSpeechService.convertSpeechToText(fileContainer,prompt);
+        log.info("Content from mp3 is : {}",fullMp3Content);
         String summarizedContent = aiCallService.getGptResponse(fullMp3Content, prompt);
         FileDetail fileDetail = new FileDetail();
         fileDetail.setCaseId(fileContainer.getCaseId())
                 .setFilePath(filePath)
-                .setFileType(FileType.AUDIO);
-               // .setFullContent(fullMp3Content)
-               // .setSummarizedContent(summarizedContent);
+                .setFileType(FileType.AUDIO)
+                .setFullContent(fullMp3Content)
+                .setSummarizedContent(summarizedContent);
         dbService.save(fileDetail, FileDetail.class.getSimpleName());
     }
 
@@ -262,14 +262,36 @@ public class FileProcessService
         log.info("Processing image file : {}",fileContainer.getFileName());
         Query query = new Query(Criteria.where(Prompt.Fields.fileType).is(FileType.IMAGE));
         Prompt prompt = dbService.findOne(query, Prompt.class);
-        AiResponseDto aiResponseDto =aiCallService.getImageResponse(fileContainer,prompt,filePath);
+        String mimeType = getImageMimeType(fileContainer.getFileName());
+        AiResponseDto aiResponseDto =aiCallService.getImageResponse(fileContainer,prompt,filePath,mimeType);
         FileDetail fileDetail = new FileDetail();
         fileDetail.setCaseId(fileContainer.getCaseId())
                 .setFilePath(filePath)
-                .setFileType(FileType.IMAGE);
-               // .setFullContent(aiResponseDto.getFullContent())
-               // .setSummarizedContent(aiResponseDto.getSummarizedContent());
+                .setFileType(FileType.IMAGE)
+                .setFullContent(aiResponseDto.getFullContent())
+                .setSummarizedContent(aiResponseDto.getSummarizedContent());
         dbService.save(fileDetail, FileDetail.class.getSimpleName());
         log.info("Processing Image file: {}", fileContainer.getFileName());
     }
+
+    private String getImageMimeType(String fileName) {
+        if (fileName != null) {
+            String lower = fileName.toLowerCase();
+
+            if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) {
+                return "image/jpeg";
+            }
+            if (lower.endsWith(".png")) {
+                return "image/png";
+            }
+            if (lower.endsWith(".gif")) {
+                return "image/gif";
+            }
+            if (lower.endsWith(".webp")) {
+                return "image/webp";
+            }
+        }
+        return "image/jpeg";
+    }
+
 }
