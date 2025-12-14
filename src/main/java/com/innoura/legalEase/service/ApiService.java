@@ -18,7 +18,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -152,11 +151,13 @@ public class ApiService
         String listItems = Arrays.stream(content.split("\\."))
                 .map(String::trim)
                 .filter(s -> !s.isEmpty())
-                .map(s -> "<li>" + s + ".</li>")  // add back the period & wrap in <li>
+                .map(s -> s.replaceFirst("^[-–—]\\s*", "")) // remove leading -, – or —
+                .map(s -> "<li>" + s + ".</li>")             // add period & wrap in <li>
                 .collect(Collectors.joining("\n"));
 
         // Wrap in <ul>
         return "<ul>" + listItems + "</ul>";
+
     }
 
 }

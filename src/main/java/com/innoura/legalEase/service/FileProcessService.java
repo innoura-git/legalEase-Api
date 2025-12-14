@@ -4,11 +4,13 @@ import com.innoura.legalEase.dbservice.DbService;
 import com.innoura.legalEase.dto.AiResponseDto;
 import com.innoura.legalEase.dto.FileContainerDto;
 import com.innoura.legalEase.entity.CaseDetail;
+import com.innoura.legalEase.entity.ExceptionLog;
 import com.innoura.legalEase.entity.FileDetail;
 import com.innoura.legalEase.entity.Prompt;
 import com.innoura.legalEase.enums.FileType;
 import com.innoura.legalEase.utils.FileContainerUtils;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.tika.Tika;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
@@ -22,6 +24,7 @@ import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 
 @Slf4j
 @Service
@@ -36,6 +39,14 @@ public class FileProcessService
 
     @Value("${file.upload.path}")
     private String fileUploadPath;
+
+    private static final Set<String> AZURE_SUPPORTED_IMAGE_TYPES = Set.of(
+            "image/jpeg",
+            "image/png",
+            "image/webp",
+            "image/gif"
+    );
+    private static final Tika tika = new Tika();
 
     public FileProcessService(DbService dbService, FileContainerUtils fileContainerUtils, ContentExtractionService contentExtractionService, AiCallService aiCallService, ResponseProcessHelper responseProcessHelper,AzureSpeechService azureSpeechService)
     {
@@ -266,38 +277,34 @@ public class FileProcessService
             throws Exception
     {
         log.info("Processing image file : {}",fileContainer.getFileName());
-        Query query = new Query(Criteria.where(Prompt.Fields.fileType).is(FileType.IMAGE));
+        String mimeType = detectMimeType(fileContainer.getFileByte());
+        if (!AZURE_SUPPORTED_IMAGE_TYPES.contains(mimeType)) {
+            ExceptionLog exceptionLog = new ExceptionLog(fileContainer.getCaseId(),"Unsupported mime type : " + mimeType);
+            dbService.save(exceptionLog);
+        }
+
+        Query query = new Query(Criteria.where(Prompt.Fields.fileType).is(FileType.IMAGE_TO_TEXT));
         Prompt prompt = dbService.findOne(query, Prompt.class);
-        String mimeType = getImageMimeType(fileContainer.getFileName());
-        AiResponseDto aiResponseDto =aiCallService.getImageResponse(fileContainer,prompt,filePath,mimeType);
+        String imageToText = aiCallService.getImageResponse(fileContainer,prompt,filePath,mimeType);
+        log.info("Found mime type is : {}",mimeType);
+
+        Query summaryQuery = new Query(Criteria.where(Prompt.Fields.fileType).is(FileType.IMAGE_SUMMARY));
+        Prompt summaryPrompt = dbService.findOne(summaryQuery, Prompt.class);
+        String imageSummary =aiCallService.getGptResponse(imageToText,summaryPrompt,fileContainer.getCaseId());
+
         FileDetail fileDetail = new FileDetail();
         fileDetail.setCaseId(fileContainer.getCaseId())
                 .setFilePath(filePath)
                 .setFileType(FileType.IMAGE)
-                .setFullContent(aiResponseDto.getFullContent())
-                .setSummarizedContent(aiResponseDto.getSummarizedContent());
+                .setFullContent(imageToText)
+                .setSummarizedContent(imageSummary);
         dbService.save(fileDetail, FileDetail.class.getSimpleName());
         log.info("Processing Image file: {}", fileContainer.getFileName());
     }
-
-    private String getImageMimeType(String fileName) {
-        if (fileName != null) {
-            String lower = fileName.toLowerCase();
-
-            if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) {
-                return "image/jpeg";
-            }
-            if (lower.endsWith(".png")) {
-                return "image/png";
-            }
-            if (lower.endsWith(".gif")) {
-                return "image/gif";
-            }
-            if (lower.endsWith(".webp")) {
-                return "image/webp";
-            }
-        }
-        return "image/jpeg";
+    private static String detectMimeType(byte[] data) {
+        return tika.detect(data);
     }
+
+
 
 }

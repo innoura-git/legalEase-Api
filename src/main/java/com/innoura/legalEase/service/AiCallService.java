@@ -123,7 +123,7 @@ public class AiCallService
 
 
 
-    public AiResponseDto getImageResponse(
+    public String getImageResponse(
             FileContainerDto fileContainer,
             Prompt prompt,
             String filePath,
@@ -205,7 +205,7 @@ public class AiCallService
                         .asText();
 
                 aiResponseSave(result,fileContainer.getCaseId(),prompt.getFileType());
-                return responseProcessHelper.processAiResponse(result);
+                return result;
             }
             catch (Exception e) {
                 retryCount++;
@@ -214,7 +214,7 @@ public class AiCallService
                 } else {
                     ExceptionLog exceptionLog = new ExceptionLog(fileContainer.getCaseId(),e.getMessage());
                     dbService.save(exceptionLog);
-                    return new AiResponseDto("","");
+                    return "";
                 }
             }
             finally {
@@ -222,7 +222,7 @@ public class AiCallService
             }
         }
 
-        return new AiResponseDto("", "");
+        return "";
     }
     private void aiResponseSave(String aiResponse,String caseId, FileType fileType)
     {
