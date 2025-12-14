@@ -238,7 +238,9 @@ public class FileProcessService
         log.info("excel file content saved for the caseId :{}", fileContainer.getCaseId());
     }
 
-    private void processAudioFile(FileContainerDto fileContainer, String filePath) {
+    private void processAudioFile(FileContainerDto fileContainer, String filePath)
+            throws InterruptedException
+    {
         log.info("Processing Audio file: {}", fileContainer.getFileName());
 
         Query queryForSpeechToText = new Query(Criteria.where(Prompt.Fields.fileType).is(FileType.SPEECH_TO_TEXT));

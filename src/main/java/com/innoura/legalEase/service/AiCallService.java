@@ -99,7 +99,6 @@ public class AiCallService
                         .path("message")
                         .path("content")
                         .asText();
-
                 aiResponseSave(result,caseId,prompt.getFileType());
                 return result;
             }
@@ -119,8 +118,7 @@ public class AiCallService
                 }
             }
         }
-
-        return "Failed to get response after retries.";
+        return "";
     }
 
 

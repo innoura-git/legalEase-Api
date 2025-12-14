@@ -4,6 +4,7 @@ import com.innoura.legalEase.dbservice.DbService;
 import com.innoura.legalEase.dto.CaseReport;
 import com.innoura.legalEase.dto.FileDownloadResult;
 import com.innoura.legalEase.entity.CaseDetail;
+import com.innoura.legalEase.entity.ExceptionLog;
 import com.innoura.legalEase.enums.FileType;
 import com.innoura.legalEase.service.ApiService;
 import com.innoura.legalEase.service.FileProcessService;
@@ -51,6 +52,8 @@ public class CaseController
         }
         catch (Exception e) {
             log.error("exception occurred while saving new caseDetail ", e);
+            ExceptionLog exceptionLog = new ExceptionLog(caseDetail.getCaseId(), e.getMessage());
+            dbService.save(exceptionLog);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
@@ -69,6 +72,8 @@ public class CaseController
         }
         catch (Exception e) {
             log.error("Exception occurred while uploading files for caseId: {}", caseId, e);
+            ExceptionLog exceptionLog = new ExceptionLog(caseId, e.getMessage());
+            dbService.save(exceptionLog);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("Error uploading files: " + e.getMessage());
         }
@@ -85,6 +90,8 @@ public class CaseController
         }
         catch (Exception e) {
             log.error("Exception occurred while fetching all case reports", e);
+            ExceptionLog exceptionLog = new ExceptionLog("", e.getMessage());
+            dbService.save(exceptionLog);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
@@ -106,10 +113,14 @@ public class CaseController
         }
         catch (IllegalArgumentException e) {
             log.error("Invalid request for file download - caseId: {}, fileType: {}", caseId, fileType, e);
+            ExceptionLog exceptionLog = new ExceptionLog(caseId, e.getMessage());
+            dbService.save(exceptionLog);
             return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
         }
         catch (Exception e) {
             log.error("Exception occurred while downloading file for caseId: {}, fileType: {}", caseId, fileType, e);
+            ExceptionLog exceptionLog = new ExceptionLog(caseId, e.getMessage());
+            dbService.save(exceptionLog);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
