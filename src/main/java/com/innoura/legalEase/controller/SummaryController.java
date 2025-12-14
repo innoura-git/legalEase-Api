@@ -10,17 +10,35 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/file")
-public class SummaryController
-{
+public class SummaryController {
+
     private final ApiService apiService;
 
-    public SummaryController(ApiService apiService) {this.apiService = apiService;}
+    public SummaryController(ApiService apiService) {
+        this.apiService = apiService;
+    }
 
-    @GetMapping("/get/summary")
-    public ResponseEntity<String> getSummaryForFile(@RequestParam("caseId") String caseId,
-            @RequestParam("fileType") FileType fileType)
-    {
-        String summaryForFile = apiService.getSummaryForFile(caseId,fileType);
-        return ResponseEntity.ok(summaryForFile);
+    @GetMapping(value = "/get/summary", produces = "text/html; charset=UTF-8")
+    public ResponseEntity<String> getSummaryForFile(
+            @RequestParam("caseId") String caseId,
+            @RequestParam("fileType") FileType fileType
+    ) {
+        String summaryHtml = apiService.getSummaryForFile(caseId, fileType);
+
+        // If the service already returns HTML, keep it as-is.
+        // Otherwise wrap it in simple HTML tags:
+        String htmlPage = """
+            <html>
+                <head>
+                    <title>Summary</title>
+                </head>
+                <body>
+                    %s
+                </body>
+            </html>
+            """.formatted(summaryHtml);
+
+        return ResponseEntity.ok(htmlPage);
     }
 }
+
