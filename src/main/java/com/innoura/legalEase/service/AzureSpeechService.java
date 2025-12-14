@@ -1,20 +1,21 @@
 package com.innoura.legalEase.service;
 
 import com.innoura.legalEase.dbservice.DbService;
-import com.innoura.legalEase.dto.AiResponseDto;
 import com.innoura.legalEase.dto.FileContainerDto;
 import com.innoura.legalEase.entity.AiResponseRecorder;
 import com.innoura.legalEase.entity.ExceptionLog;
 import com.innoura.legalEase.entity.Prompt;
 import com.innoura.legalEase.enums.FileType;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
-import org.springframework.validation.beanvalidation.SpringValidatorAdapter;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
@@ -89,6 +90,81 @@ public class AzureSpeechService
                 }
                 else {
                     ExceptionLog exceptionLog = new ExceptionLog(fileContainer.getCaseId(), e.getMessage());
+                    dbService.save(exceptionLog);
+                    return "";
+                }
+            }
+            finally {
+                log.info("Exiting image processing for converting audio into text : {}", fileContainer.getFileName());
+            }
+        }
+        return "";
+    }
+
+    public String convertSpeechToTextUsingFastTranscribe(FileContainerDto fileContainer, Prompt prompt, String mimeTypeOfAudio)
+            throws InterruptedException
+    {
+        log.info("Mime type : {} FIle Name : {}",mimeTypeOfAudio,fileContainer.getFileName());
+        int retryCount = 0;
+        while (retryCount < MAX_RETRIES) {
+            try {
+                log.info("Converting speech to text for file: {}", fileContainer.getFileName());
+
+                // Azure Speech-to-Text REST API endpoint
+
+                // Create headers
+                HttpHeaders headers = new HttpHeaders();
+                headers.set("Ocp-Apim-Subscription-Key", prompt.getKey());
+                headers.setContentType(MediaType.MULTIPART_FORM_DATA);
+
+                MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
+
+                body.add("audio", new HttpEntity<>(
+                        new ByteArrayResource(fileContainer.getFileByte()) {
+                            @Override
+                            public String getFilename() {
+                                return fileContainer.getFileName();
+                            }
+                        },
+                        new HttpHeaders() {{
+                            setContentType(MediaType.parseMediaType(mimeTypeOfAudio));
+                        }}
+                ));
+
+                // Create request entity with audio bytes
+                HttpEntity<MultiValueMap<String,Object>> requestEntity = new HttpEntity<>(body, headers);
+
+                // Make API call
+                ResponseEntity<String> response = restTemplate.exchange(
+                        prompt.getUrl(),
+                        HttpMethod.POST,
+                        requestEntity,
+                        String.class
+                );
+
+                JsonNode responseJson = objectMapper.readTree(response.getBody());
+                log.info("Response from ai is : {}", responseJson.toString());
+
+                String transcription = responseJson
+                        .path("combinedPhrases")
+                        .path(0)
+                        .path("text")
+                        .asText();
+                log.info("Transcription : {}",transcription);
+                if (transcription == null || transcription.isEmpty()) {
+                    log.warn("Empty transcription received for file: {}", fileContainer.getFileName());
+                }
+                aiResponseSave(transcription, fileContainer.getCaseId(), prompt.getFileType());
+                log.info("Successfully converted speech to text for file: {}", fileContainer.getFileName());
+                return transcription != null ? transcription : "";
+            }
+            catch (Exception e) {
+                retryCount++;
+                if (retryCount < MAX_RETRIES) {
+                    Thread.sleep(RETRY_DELAY_MS);
+                }
+                else {
+                    ExceptionLog exceptionLog = new ExceptionLog(fileContainer.getCaseId(), e.getMessage() + "For mimeType :" + mimeTypeOfAudio);
                     dbService.save(exceptionLog);
                     return "";
                 }
