@@ -135,20 +135,28 @@ public class ApiService
         };
     }
 
-    public String getSummaryForFile(String caseId, FileType fileType)
-    {
-        Query query = new Query(Criteria.where(FileDetail.Fields.caseId).is(caseId)
-                .and(FileDetail.Fields.fileType).is(fileType));
+    public String getSummaryForFile(String caseId, FileType fileType) {
+        Query query = new Query(
+                Criteria.where(FileDetail.Fields.caseId).is(caseId)
+                        .and(FileDetail.Fields.fileType).is(fileType)
+        );
+
         FileDetail fileDetail = dbService.findOne(query, FileDetail.class, FileDetail.class.getSimpleName());
         String content = fileDetail.getSummarizedContent();
 
-        String formattedSummary = "";
-        if (content != null && !content.trim().isEmpty()) {
-            formattedSummary = Arrays.stream(content.split("\\."))
-                    .map(String::trim)
-                    .filter(s -> !s.isEmpty())
-                    .collect(Collectors.joining("\n"));
+        if (content == null || content.trim().isEmpty()) {
+            return "<p>No summary available.</p>";
         }
-        return formattedSummary;
+
+        // Split into sentences and convert to HTML list items
+        String listItems = Arrays.stream(content.split("\\."))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .map(s -> "<li>" + s + ".</li>")  // add back the period & wrap in <li>
+                .collect(Collectors.joining("\n"));
+
+        // Wrap in <ul>
+        return "<ul>" + listItems + "</ul>";
     }
+
 }
