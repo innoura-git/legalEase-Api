@@ -6,5 +6,7 @@ public enum FileType
     EXCEL,
     IMAGE,
     AUDIO,
-    QA
+    QA,
+    SPEECH_TO_TEXT,
+    AUDIO_SUMMARY
 }
