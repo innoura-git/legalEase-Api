@@ -16,7 +16,9 @@ import org.springframework.stereotype.Service;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -131,5 +133,22 @@ public class ApiService
             case IMAGE -> "image/jpeg";
             default -> null;
         };
+    }
+
+    public String getSummaryForFile(String caseId, FileType fileType)
+    {
+        Query query = new Query(Criteria.where(FileDetail.Fields.caseId).is(caseId)
+                .and(FileDetail.Fields.fileType).is(fileType));
+        FileDetail fileDetail = dbService.findOne(query, FileDetail.class, FileDetail.class.getSimpleName());
+        String content = fileDetail.getSummarizedContent();
+
+        String formattedSummary = "";
+        if (content != null && !content.trim().isEmpty()) {
+            formattedSummary = Arrays.stream(content.split("\\."))
+                    .map(String::trim)
+                    .filter(s -> !s.isEmpty())
+                    .collect(Collectors.joining("\n"));
+        }
+        return formattedSummary;
     }
 }

@@ -9,6 +9,9 @@ import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @Service
 @Slf4j
 public class ChatService
@@ -30,8 +33,12 @@ public class ChatService
             log.error("no prompt found in the db for the QA for caseId :{}", caseId);
             return null;
         }
-        query = new Query(Criteria.where(FileDetail.Fields.caseId).is(caseId));
-        //;add type hjhjwbecjpihb
+        List<Criteria> criteriaList = new ArrayList<>();
+        criteriaList.add(Criteria.where(FileDetail.Fields.caseId).is(caseId));
+        criteriaList.add(Criteria.where(FileDetail.Fields.fileType).is(fileType));
+        query = new Query(
+                new Criteria().andOperator(criteriaList.toArray(new Criteria[0]))
+        );
         FileDetail fileDetail = dbService.findOne(query, FileDetail.class);
         if(fileDetail == null || fileDetail.getFullContent() == null)
         {
@@ -40,6 +47,5 @@ public class ChatService
         }
 
      return  aiCallService.getGptResponse("content" + fileDetail.getFullContent() + "\n Question : \n" +question, prompt);
-
     }
 }
