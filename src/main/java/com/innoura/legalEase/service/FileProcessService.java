@@ -257,7 +257,8 @@ public class FileProcessService
         Query queryForSpeechToText = new Query(Criteria.where(Prompt.Fields.fileType).is(FileType.SPEECH_TO_TEXT));
         Prompt promptForSpeechToText = dbService.findOne(queryForSpeechToText, Prompt.class);
 
-        String fullMp3Content = azureSpeechService.convertSpeechToText(fileContainer,promptForSpeechToText);
+        String mimeTypeOfAudio = detectMimeType(fileContainer.getFileByte());
+        String fullMp3Content = azureSpeechService.convertSpeechToTextUsingFastTranscribe(fileContainer,promptForSpeechToText,mimeTypeOfAudio);
         log.info("Content from mp3 is : {}",fullMp3Content);
 
         Query queryForSpeechTextSummary = new Query(Criteria.where(Prompt.Fields.fileType).is(FileType.AUDIO_SUMMARY));
