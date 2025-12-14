@@ -151,6 +151,7 @@ public class AiCallService
                 // --------------------------------------------------
 
                 Map<String, Object> requestBody = new HashMap<>();
+                requestBody.put("model","gpt-5-mini");
 
                 List<Map<String, Object>> messages = new ArrayList<>();
 
@@ -178,6 +179,8 @@ public class AiCallService
 
                 requestBody.put("messages", messages);
                 requestBody.put("max_completion_tokens", 128000);
+                requestBody.put("reasoning_effort","low");
+                requestBody.put("stream",false);
 
                 HttpEntity<Map<String, Object>> requestEntity =
                         new HttpEntity<>(requestBody, headers);

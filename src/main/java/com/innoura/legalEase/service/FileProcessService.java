@@ -241,12 +241,16 @@ public class FileProcessService
     private void processAudioFile(FileContainerDto fileContainer, String filePath) {
         log.info("Processing Audio file: {}", fileContainer.getFileName());
 
-        Query query = new Query(Criteria.where(Prompt.Fields.fileType).is(FileType.AUDIO));
-        Prompt prompt = dbService.findOne(query, Prompt.class);
+        Query queryForSpeechToText = new Query(Criteria.where(Prompt.Fields.fileType).is(FileType.SPEECH_TO_TEXT));
+        Prompt promptForSpeechToText = dbService.findOne(queryForSpeechToText, Prompt.class);
 
-        String fullMp3Content = azureSpeechService.convertSpeechToText(fileContainer,prompt);
+        String fullMp3Content = azureSpeechService.convertSpeechToText(fileContainer,promptForSpeechToText);
         log.info("Content from mp3 is : {}",fullMp3Content);
-        String summarizedContent = aiCallService.getGptResponse(fullMp3Content, prompt);
+
+        Query queryForSpeechTextSummary = new Query(Criteria.where(Prompt.Fields.fileType).is(FileType.AUDIO_SUMMARY));
+        Prompt promptForSpeechTextSummary = dbService.findOne(queryForSpeechTextSummary, Prompt.class);
+        String summarizedContent = aiCallService.getGptResponse(fullMp3Content, promptForSpeechTextSummary);
+
         FileDetail fileDetail = new FileDetail();
         fileDetail.setCaseId(fileContainer.getCaseId())
                 .setFilePath(filePath)
