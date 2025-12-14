@@ -40,9 +40,10 @@ public class AiCallService
         this.responseProcessHelper = responseProcessHelper;
     }
 
-    public String getGptResponse(String content, Prompt prompt)
-    {
+    public String getGptResponse(String content, Prompt prompt) {
+        log.info("Entering file process for : {}", prompt.getFileType());
         int retryCount = 0;
+
         while (retryCount < MAX_RETRIES) {
             try {
                 HttpHeaders headers = new HttpHeaders();
@@ -51,166 +52,175 @@ public class AiCallService
 
                 Map<String, Object> body = new HashMap<>();
 
-                body.put("model", "gpt-5-mini");
-
-                // messages list
+                // ---- CHAT COMPLETIONS PAYLOAD ----
                 List<Map<String, String>> messages = new ArrayList<>();
+
+                if (prompt.getFileType().name().equals("AUDIO"))
+                {
+                    log.info("System prompt : {}",prompt.getSystemPrompt());
+                    log.info("User prompt : {}",content);
+                }
                 messages.add(Map.of(
                         "role", "system",
                         "content", prompt.getSystemPrompt()
                 ));
+
                 messages.add(Map.of(
                         "role", "user",
                         "content", content
                 ));
+
                 body.put("messages", messages);
 
-                // reasoning effort
-                Map<String, Object> reasoning = new HashMap<>();
-                reasoning.put("effort", "high");  // deeper reasoning
-                body.put("reasoning", reasoning);
+                body.put("max_completion_tokens", 128000);
 
-                // verbosity control to make output more detailed
-                Map<String, Object> textParams = new HashMap<>();
-                textParams.put("verbosity", "high");
-                body.put("text", textParams);
-
-                // optional: max output tokens
-                body.put("max_output_tokens", 128000);
-
-
-                HttpEntity<Map<String, Object>> requestEntity = new HttpEntity<>(body, headers);
+                HttpEntity<Map<String, Object>> requestEntity =
+                        new HttpEntity<>(body, headers);
 
                 ResponseEntity<String> response = restTemplate.exchange(
-                        prompt.getUrl(),
+                        prompt.getUrl(),   // .../chat/completions
                         HttpMethod.POST,
                         requestEntity,
                         String.class
                 );
 
                 JsonNode root = objectMapper.readTree(response.getBody());
-                JsonNode choicesNode = root.path("choices");
-                JsonNode firstChoice = choicesNode.get(0);
-                JsonNode messageNode = firstChoice.path("message");
 
-                JsonNode contentNode = messageNode.path("content");
-                log.info("AI Response for type : {} ",prompt.getFileType().name());
-                log.info("AI Response {} ",contentNode.asText());
+                // ---- STANDARD CHAT COMPLETIONS READ ----
+                String result = root
+                        .path("choices")
+                        .get(0)
+                        .path("message")
+                        .path("content")
+                        .asText();
 
-                return contentNode.asText();
+                log.info("AI Response for type : {}", prompt.getFileType().name());
+                log.info("AI Response {}", result);
+
+                return result;
             }
             catch (Exception e) {
                 retryCount++;
                 if (retryCount < MAX_RETRIES) {
                     try {
                         Thread.sleep(RETRY_DELAY_MS);
-                    }
-                    catch (InterruptedException ie) {
+                    } catch (InterruptedException ie) {
                         Thread.currentThread().interrupt();
                         return "Request interrupted";
                     }
-                }
-                else {
+                } else {
+                    log.info("Exception for file type : {} Error : {}",prompt.getFileType(),e.getMessage());
                     return "Failed to get response after retries. Error: " + e.getMessage();
                 }
             }
         }
+
         return "Failed to get response after retries.";
     }
 
-    public AiResponseDto getImageResponse(FileContainerDto fileContainer, Prompt prompt, String filePath)
-            throws Exception
+
+
+    public AiResponseDto getImageResponse(
+            FileContainerDto fileContainer,
+            Prompt prompt,
+            String filePath,
+            String mimeType) throws Exception
     {
         int retryCount = 0;
+
         while (retryCount < MAX_RETRIES) {
             try {
+                log.info("Entering image processing for image : {} for caseId : {}",
+                        fileContainer.getFileName(), fileContainer.getCaseId());
 
-                log.info("Entering image processing for image : {} for caseId : {}", fileContainer.getFileName(), fileContainer.getCaseId());
-
+                // --- Read image ---
                 byte[] imageBytes = Files.readAllBytes(Path.of(filePath));
-                String base64Image = Base64.getEncoder().encodeToString(imageBytes);
-                String dataUrl = "data:image/jpeg;base64," + base64Image;
+                String base64Image = Base64.getEncoder()
+                        .encodeToString(imageBytes)
+                        .replaceAll("\\s+", "");
 
+                String dataUrl = "data:"+mimeType+";base64," + base64Image;
+
+                // --- Headers (same as WebClient) ---
                 HttpHeaders headers = new HttpHeaders();
                 headers.setContentType(MediaType.APPLICATION_JSON);
                 headers.set("api-key", prompt.getKey());
 
-                Map<String, Object> body = new HashMap<>();
-                body.put("model", "gpt-5-mini");  // or another vision-capable model
+                // --------------------------------------------------
+                // REQUEST BODY (MATCHES WORKING WEBCLIENT VERSION)
+                // --------------------------------------------------
 
-                // messages: system + user with embedded image part
+                Map<String, Object> requestBody = new HashMap<>();
+                requestBody.put("model","gpt-5-mini");
+
                 List<Map<String, Object>> messages = new ArrayList<>();
 
-                messages.add(Map.of(
-                        "role", "system",
-                        "content", prompt.getSystemPrompt()
+                Map<String, Object> userMessage = new HashMap<>();
+                userMessage.put("role", "user");
+
+                List<Map<String, Object>> content = new ArrayList<>();
+
+                // text block
+                content.add(Map.of(
+                        "type", "text",
+                        "text", prompt.getSystemPrompt()
                 ));
 
-                List<Map<String, Object>> userContent = new ArrayList<>();
-                userContent.add(Map.of(
+                // image block
+                content.add(Map.of(
                         "type", "image_url",
-                        "image_url", dataUrl
+                        "image_url", Map.of(
+                                "url", dataUrl
+                        )
                 ));
 
-                messages.add(Map.of(
-                        "role", "user",
-                        "content", userContent
-                ));
+                userMessage.put("content", content);
+                messages.add(userMessage);
 
-                body.put("messages", messages);
+                requestBody.put("messages", messages);
+                requestBody.put("max_completion_tokens", 128000);
+                requestBody.put("reasoning_effort","low");
+                requestBody.put("stream",false);
 
-                // you can still include reasoning verbosity if desired
-                Map<String, Object> reasoning = new HashMap<>();
-                reasoning.put("effort", "high");
-                body.put("reasoning", reasoning);
-
-                // verbosity control to make output more detailed
-                Map<String, Object> textParams = new HashMap<>();
-                textParams.put("verbosity", "high");
-                body.put("text", textParams);
-
-                // optional: max output tokens
-                body.put("max_output_tokens", 128000);
-
-                HttpEntity<Map<String, Object>> requestEntity = new HttpEntity<>(body, headers);
+                HttpEntity<Map<String, Object>> requestEntity =
+                        new HttpEntity<>(requestBody, headers);
 
                 ResponseEntity<String> response = restTemplate.exchange(
-                        prompt.getUrl(),
+                        prompt.getUrl(),   // chat/completions endpoint
                         HttpMethod.POST,
                         requestEntity,
                         String.class
                 );
 
+                // --- Parse response (unchanged) ---
                 JsonNode root = objectMapper.readTree(response.getBody());
-                JsonNode choicesNode = root.path("choices");
-                JsonNode firstChoice = choicesNode.get(0);
-                JsonNode messageNode = firstChoice.path("message");
+                String result = root
+                        .path("choices")
+                        .get(0)
+                        .path("message")
+                        .path("content")
+                        .asText();
 
-                JsonNode contentNode = messageNode.path("content");
+                log.info("AI Response for type : {}", prompt.getFileType().name());
+                log.info("AI Response {}", result);
 
-                log.info("AI Response for type : {} ",prompt.getFileType().name());
-                log.info("AI Response {} ",contentNode.asText());
-
-                AiResponseDto aiResponseDto = responseProcessHelper.processAiResponse(contentNode.toString());
-                return aiResponseDto;
+                return responseProcessHelper.processAiResponse(result);
             }
             catch (Exception e) {
                 retryCount++;
                 if (retryCount < MAX_RETRIES) {
-                    try {
-                        Thread.sleep(RETRY_DELAY_MS);
-                    }
-                    catch (InterruptedException ie) {
-                        Thread.currentThread().interrupt();
-                        return new AiResponseDto("Error in AI Response","Error in AI Response");
-                    }
-                }
-                else {
-                    throw new Exception(e.getMessage());
+                    Thread.sleep(RETRY_DELAY_MS);
+                } else {
+                    log.info("Exception for file type : {} Error : {}",prompt.getFileType(),e.getMessage());
+                    throw e;
                 }
             }
-            log.info("Exiting image processing for image : {}", fileContainer.getFileName());
+            finally {
+                log.info("Exiting image processing for image : {}", fileContainer.getFileName());
+            }
         }
-        return new AiResponseDto("Error in AI Response","Error in AI Response");
+
+        return new AiResponseDto("Error in AI Response", "Error in AI Response");
     }
+
 }

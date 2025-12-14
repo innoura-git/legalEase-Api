@@ -119,7 +119,7 @@ public class ApiService
             case EXCEL -> caseDetail.getExcelFilePaths();
             case AUDIO -> caseDetail.getAudioFilePaths();
             case IMAGE -> caseDetail.getImageFilePaths();
-            case QA -> null;
+            default -> null;
         };
     }
     
@@ -129,7 +129,7 @@ public class ApiService
             case EXCEL -> "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
             case AUDIO -> "audio/mpeg";
             case IMAGE -> "image/jpeg";
-            case QA -> null;
+            default -> null;
         };
     }
 }

@@ -1,11 +1,13 @@
 package com.innoura.legalEase.service;
 
-
 import com.innoura.legalEase.dto.FileContainerDto;
 import com.innoura.legalEase.entity.Prompt;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.*;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import tools.jackson.databind.JsonNode;
@@ -38,7 +40,7 @@ public class AzureSpeechService
 
             // Create headers
             HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.parseMediaType("audio/mp3"));
+            headers.setContentType(MediaType.parseMediaType("audio/wav"));
             headers.set("Ocp-Apim-Subscription-Key", prompt.getKey());
             headers.setAccept(java.util.Collections.singletonList(MediaType.APPLICATION_JSON));
 
@@ -61,7 +63,6 @@ public class AzureSpeechService
 
             if (transcription == null || transcription.isEmpty()) {
                 log.warn("Empty transcription received for file: {}", fileContainer.getFileName());
-                transcription = responseJson.path("Text").asText(); // Fallback to Text field
 
                 log.info("AI Response for type : {} ",prompt.getFileType().name());
                 log.info("AI Response {} ",transcription);
