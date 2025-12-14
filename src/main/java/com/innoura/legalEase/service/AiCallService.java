@@ -110,7 +110,7 @@ public class AiCallService
                     }
                 } else {
                     log.info("Exception for file type : {} Error : {}",prompt.getFileType(),e.getMessage());
-                    return "Failed to get response after retries. Error: " + e.getMessage();
+                    return "Failed to get response";
                 }
             }
         }
