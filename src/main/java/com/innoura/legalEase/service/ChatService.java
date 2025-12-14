@@ -46,6 +46,6 @@ public class ChatService
             return null;
         }
 
-     return  aiCallService.getGptResponse("content" + fileDetail.getFullContent() + "\n Question : \n" +question, prompt);
+     return  aiCallService.getGptResponse("content" + fileDetail.getFullContent() + "\n Question : \n" +question, prompt, caseId);
     }
 }

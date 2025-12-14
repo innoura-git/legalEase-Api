@@ -1,7 +1,11 @@
 package com.innoura.legalEase.service;
 
+import com.innoura.legalEase.dbservice.DbService;
 import com.innoura.legalEase.dto.FileContainerDto;
+import com.innoura.legalEase.entity.AiResponseRecorder;
+import com.innoura.legalEase.entity.ExceptionLog;
 import com.innoura.legalEase.entity.Prompt;
+import com.innoura.legalEase.enums.FileType;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -19,11 +23,13 @@ public class AzureSpeechService
 {
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
+    private final DbService dbService;
 
 
-    public AzureSpeechService(RestTemplate restTemplate, ObjectMapper objectMapper) {
+    public AzureSpeechService(RestTemplate restTemplate, ObjectMapper objectMapper, DbService dbService) {
         this.restTemplate = restTemplate;
         this.objectMapper = objectMapper;
+        this.dbService = dbService;
     }
 
     /**
@@ -63,17 +69,22 @@ public class AzureSpeechService
 
             if (transcription == null || transcription.isEmpty()) {
                 log.warn("Empty transcription received for file: {}", fileContainer.getFileName());
-
-                log.info("AI Response for type : {} ",prompt.getFileType().name());
-                log.info("AI Response {} ",transcription);
             }
-
+            aiResponseSave(transcription,fileContainer.getCaseId(),prompt.getFileType());
             log.info("Successfully converted speech to text for file: {}", fileContainer.getFileName());
             return transcription != null ? transcription : "";
 
         } catch (Exception e) {
             log.error("Error converting speech to text for file: {}", fileContainer.getFileName(), e);
+            ExceptionLog exceptionLog = new ExceptionLog(fileContainer.getCaseId(), e.getMessage());
+            dbService.save(exceptionLog);
             throw new RuntimeException("Failed to convert speech to text: " + e.getMessage(), e);
         }
     }
+    private void aiResponseSave(String aiResponse,String caseId, FileType fileType)
+    {
+        AiResponseRecorder aiResponseRecorder = new AiResponseRecorder(caseId,aiResponse,fileType);
+        dbService.save(aiResponseRecorder);
+    }
+
 }

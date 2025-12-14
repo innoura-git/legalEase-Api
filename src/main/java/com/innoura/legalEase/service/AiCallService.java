@@ -1,8 +1,12 @@
 package com.innoura.legalEase.service;
 
+import com.innoura.legalEase.dbservice.DbService;
 import com.innoura.legalEase.dto.AiResponseDto;
+import com.innoura.legalEase.entity.AiResponseRecorder;
+import com.innoura.legalEase.entity.ExceptionLog;
 import com.innoura.legalEase.dto.FileContainerDto;
 import com.innoura.legalEase.entity.Prompt;
+import com.innoura.legalEase.enums.FileType;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -30,17 +34,19 @@ public class AiCallService
     private static final long RETRY_DELAY_MS = 10000;
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
+    private final DbService dbService;
     private final ResponseProcessHelper responseProcessHelper;
 
 
-    public AiCallService(RestTemplate restTemplate, ObjectMapper objectMapper, ResponseProcessHelper responseProcessHelper)
+    public AiCallService(RestTemplate restTemplate, ObjectMapper objectMapper, DbService dbService, ResponseProcessHelper responseProcessHelper)
     {
         this.restTemplate = restTemplate;
         this.objectMapper = objectMapper;
+        this.dbService = dbService;
         this.responseProcessHelper = responseProcessHelper;
     }
 
-    public String getGptResponse(String content, Prompt prompt) {
+    public String getGptResponse(String content, Prompt prompt, String caseId) {
         log.info("Entering file process for : {}", prompt.getFileType());
         int retryCount = 0;
 
@@ -94,9 +100,7 @@ public class AiCallService
                         .path("content")
                         .asText();
 
-                log.info("AI Response for type : {}", prompt.getFileType().name());
-                log.info("AI Response {}", result);
-
+                aiResponseSave(result,caseId,prompt.getFileType());
                 return result;
             }
             catch (Exception e) {
@@ -109,8 +113,9 @@ public class AiCallService
                         return "Request interrupted";
                     }
                 } else {
-                    log.info("Exception for file type : {} Error : {}",prompt.getFileType(),e.getMessage());
-                    return "Failed to get response";
+                    ExceptionLog exceptionLog = new ExceptionLog(caseId,e.getMessage());
+                    dbService.save(exceptionLog);
+                    return "";
                 }
             }
         }
@@ -201,9 +206,7 @@ public class AiCallService
                         .path("content")
                         .asText();
 
-                log.info("AI Response for type : {}", prompt.getFileType().name());
-                log.info("AI Response {}", result);
-
+                aiResponseSave(result,fileContainer.getCaseId(),prompt.getFileType());
                 return responseProcessHelper.processAiResponse(result);
             }
             catch (Exception e) {
@@ -211,8 +214,9 @@ public class AiCallService
                 if (retryCount < MAX_RETRIES) {
                     Thread.sleep(RETRY_DELAY_MS);
                 } else {
-                    log.info("Exception for file type : {} Error : {}",prompt.getFileType(),e.getMessage());
-                    throw e;
+                    ExceptionLog exceptionLog = new ExceptionLog(fileContainer.getCaseId(),e.getMessage());
+                    dbService.save(exceptionLog);
+                    return new AiResponseDto("","");
                 }
             }
             finally {
@@ -220,7 +224,12 @@ public class AiCallService
             }
         }
 
-        return new AiResponseDto("Error in AI Response", "Error in AI Response");
+        return new AiResponseDto("", "");
+    }
+    private void aiResponseSave(String aiResponse,String caseId, FileType fileType)
+    {
+        AiResponseRecorder aiResponseRecorder = new AiResponseRecorder(caseId,aiResponse,fileType);
+        dbService.save(aiResponseRecorder);
     }
 
 }

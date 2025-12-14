@@ -211,7 +211,7 @@ public class FileProcessService
         String pdfFileContent = contentExtractionService.extractPdfAsString(fileContainer);
         Query query = new Query(Criteria.where(Prompt.Fields.fileType).is(FileType.PDF));
         Prompt prompt = dbService.findOne(query, Prompt.class);
-        String summarizedContent = aiCallService.getGptResponse(pdfFileContent,prompt);
+        String summarizedContent = aiCallService.getGptResponse(pdfFileContent,prompt,fileContainer.getCaseId());
         FileDetail fileDetail = new FileDetail();
         fileDetail.setCaseId(fileContainer.getCaseId())
                 .setFilePath(filePath)
@@ -227,7 +227,7 @@ public class FileProcessService
         String excelFileContent = contentExtractionService.extractExcelAsString(fileContainer);
         Query query = new Query(Criteria.where(Prompt.Fields.fileType).is(FileType.EXCEL));
         Prompt prompt = dbService.findOne(query, Prompt.class);
-        String summarizedContent = aiCallService.getGptResponse(excelFileContent, prompt);
+        String summarizedContent = aiCallService.getGptResponse(excelFileContent, prompt, fileContainer.getCaseId());
         FileDetail fileDetail = new FileDetail();
         fileDetail.setCaseId(fileContainer.getCaseId())
                 .setFilePath(filePath)
@@ -249,7 +249,7 @@ public class FileProcessService
 
         Query queryForSpeechTextSummary = new Query(Criteria.where(Prompt.Fields.fileType).is(FileType.AUDIO_SUMMARY));
         Prompt promptForSpeechTextSummary = dbService.findOne(queryForSpeechTextSummary, Prompt.class);
-        String summarizedContent = aiCallService.getGptResponse(fullMp3Content, promptForSpeechTextSummary);
+        String summarizedContent = aiCallService.getGptResponse(fullMp3Content, promptForSpeechTextSummary, fileContainer.getCaseId());
 
         FileDetail fileDetail = new FileDetail();
         fileDetail.setCaseId(fileContainer.getCaseId())
