@@ -1,4 +1,4 @@
-package com.innoura.legalEase.service;
+package com.innoura.legalEase.helper;
 
 import com.innoura.legalEase.dbservice.DbService;
 import com.innoura.legalEase.entity.CaseDetail;
