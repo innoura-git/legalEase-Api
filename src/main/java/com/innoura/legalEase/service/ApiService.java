@@ -5,7 +5,9 @@ import com.innoura.legalEase.dto.CaseReport;
 import com.innoura.legalEase.dto.FileDownloadResult;
 import com.innoura.legalEase.entity.CaseDetail;
 import com.innoura.legalEase.entity.FileDetail;
+import com.innoura.legalEase.entity.Summary;
 import com.innoura.legalEase.enums.FileType;
+import com.innoura.legalEase.helper.ApiHelper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
@@ -25,10 +27,12 @@ import java.util.stream.Collectors;
 public class ApiService
 {
     private final DbService dbService;
+    private final ApiHelper apiHelper;
 
-    public ApiService(DbService dbService)
+    public ApiService(DbService dbService, ApiHelper apiHelper)
     {
         this.dbService = dbService;
+        this.apiHelper = apiHelper;
     }
 
     public List<CaseReport> getAllCaseReport()
@@ -140,24 +144,27 @@ public class ApiService
                         .and(FileDetail.Fields.fileType).is(fileType)
         );
 
-        FileDetail fileDetail = dbService.findOne(query, FileDetail.class, FileDetail.class.getSimpleName());
-        String content = fileDetail.getSummarizedContent();
+        FileDetail fileDetail = dbService.findOne(
+                query,
+                FileDetail.class,
+                FileDetail.class.getSimpleName()
+        );
 
-        if (content == null || content.trim().isEmpty()) {
+        if (fileDetail == null || fileDetail.getSummarizedContent() == null) {
             return "<p>No summary available.</p>";
         }
 
-        // Split into sentences and convert to HTML list items
-        String listItems = Arrays.stream(content.split("\\."))
-                .map(String::trim)
-                .filter(s -> !s.isEmpty())
-                .map(s -> s.replaceFirst("^[-–—]\\s*", "")) // remove leading -, – or —
-                .map(s -> "<li>" + s + ".</li>")             // add period & wrap in <li>
-                .collect(Collectors.joining("\n"));
+        Summary summary = fileDetail.getSummarizedContent();
 
-        // Wrap in <ul>
-        return "<ul>" + listItems + "</ul>";
+        StringBuilder html = new StringBuilder();
 
+        apiHelper.appendSection(html, "Summary", summary.getSummary());
+        apiHelper.appendSection(html, "Important Points", summary.getImportantPoints());
+        apiHelper.appendSection(html, "Next Hearing", summary.getNextHearing());
+        apiHelper.appendSection(html, "IPC Sections", summary.getIpcSections());
+
+        return !html.isEmpty() ? html.toString() : "<p>No summary available.</p>";
     }
+
 
 }

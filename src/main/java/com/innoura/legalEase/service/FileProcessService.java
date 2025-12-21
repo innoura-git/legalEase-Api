@@ -1,13 +1,14 @@
 package com.innoura.legalEase.service;
 
 import com.innoura.legalEase.dbservice.DbService;
-import com.innoura.legalEase.dto.AiResponseDto;
 import com.innoura.legalEase.dto.FileContainerDto;
 import com.innoura.legalEase.entity.CaseDetail;
 import com.innoura.legalEase.entity.ExceptionLog;
 import com.innoura.legalEase.entity.FileDetail;
 import com.innoura.legalEase.entity.Prompt;
+import com.innoura.legalEase.entity.Summary;
 import com.innoura.legalEase.enums.FileType;
+import com.innoura.legalEase.helper.ResponseProcessHelper;
 import com.innoura.legalEase.utils.FileContainerUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.tika.Tika;
@@ -223,12 +224,13 @@ public class FileProcessService
         Query query = new Query(Criteria.where(Prompt.Fields.fileType).is(FileType.PDF));
         Prompt prompt = dbService.findOne(query, Prompt.class);
         String summarizedContent = aiCallService.getGptResponse(pdfFileContent,prompt,fileContainer.getCaseId());
+        Summary fileSummary = responseProcessHelper.processAiResponse(summarizedContent);
         FileDetail fileDetail = new FileDetail();
         fileDetail.setCaseId(fileContainer.getCaseId())
                 .setFilePath(filePath)
                 .setFileType(FileType.PDF)
                 .setFullContent(pdfFileContent)
-                .setSummarizedContent(summarizedContent);
+                .setSummarizedContent(fileSummary);
         dbService.save(fileDetail, FileDetail.class.getSimpleName());
         log.info("pdf file content saved for the caseId :{}", fileContainer.getCaseId());
     }
@@ -239,12 +241,13 @@ public class FileProcessService
         Query query = new Query(Criteria.where(Prompt.Fields.fileType).is(FileType.EXCEL));
         Prompt prompt = dbService.findOne(query, Prompt.class);
         String summarizedContent = aiCallService.getGptResponse(excelFileContent, prompt, fileContainer.getCaseId());
+        Summary fileSummary = responseProcessHelper.processAiResponse(summarizedContent);
         FileDetail fileDetail = new FileDetail();
         fileDetail.setCaseId(fileContainer.getCaseId())
                 .setFilePath(filePath)
                 .setFileType(FileType.EXCEL)
                 .setFullContent(excelFileContent)
-                .setSummarizedContent(summarizedContent);
+                .setSummarizedContent(fileSummary);
         dbService.save(fileDetail, FileDetail.class.getSimpleName());
         log.info("excel file content saved for the caseId :{}", fileContainer.getCaseId());
     }
@@ -263,8 +266,7 @@ public class FileProcessService
 
         Query queryForSpeechTextSummary = new Query(Criteria.where(Prompt.Fields.fileType).is(FileType.AUDIO_SUMMARY));
         Prompt promptForSpeechTextSummary = dbService.findOne(queryForSpeechTextSummary, Prompt.class);
-        String summarizedContent = aiCallService.getGptResponse(fullMp3Content, promptForSpeechTextSummary, fileContainer.getCaseId());
-
+        Summary summarizedContent = aiCallService.getTextSummary(fullMp3Content, promptForSpeechTextSummary, fileContainer.getCaseId());
         FileDetail fileDetail = new FileDetail();
         fileDetail.setCaseId(fileContainer.getCaseId())
                 .setFilePath(filePath)
@@ -272,6 +274,8 @@ public class FileProcessService
                 .setFullContent(fullMp3Content)
                 .setSummarizedContent(summarizedContent);
         dbService.save(fileDetail, FileDetail.class.getSimpleName());
+        log.info("audio file content saved for the caseId :{}", fileContainer.getCaseId());
+
     }
 
     private void processImageFile(FileContainerDto fileContainer, String filePath)
@@ -283,24 +287,18 @@ public class FileProcessService
             ExceptionLog exceptionLog = new ExceptionLog(fileContainer.getCaseId(),"Unsupported mime type : " + mimeType);
             dbService.save(exceptionLog);
         }
-
-        Query query = new Query(Criteria.where(Prompt.Fields.fileType).is(FileType.IMAGE_TO_TEXT));
-        Prompt prompt = dbService.findOne(query, Prompt.class);
-        String imageToText = aiCallService.getImageResponse(fileContainer,prompt,filePath,mimeType);
-        log.info("Found mime type is : {}",mimeType);
-
         Query summaryQuery = new Query(Criteria.where(Prompt.Fields.fileType).is(FileType.IMAGE_SUMMARY));
         Prompt summaryPrompt = dbService.findOne(summaryQuery, Prompt.class);
-        String imageSummary =aiCallService.getGptResponse(imageToText,summaryPrompt,fileContainer.getCaseId());
+        Summary imageSummary =aiCallService.getImageSummary(fileContainer,summaryPrompt,mimeType);
 
         FileDetail fileDetail = new FileDetail();
         fileDetail.setCaseId(fileContainer.getCaseId())
                 .setFilePath(filePath)
                 .setFileType(FileType.IMAGE)
-                .setFullContent(imageToText)
                 .setSummarizedContent(imageSummary);
         dbService.save(fileDetail, FileDetail.class.getSimpleName());
-        log.info("Processing Image file: {}", fileContainer.getFileName());
+        log.info("image file content saved for the caseId :{}", fileContainer.getCaseId());
+
     }
     private static String detectMimeType(byte[] data) {
         return tika.detect(data);

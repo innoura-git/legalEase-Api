@@ -1,6 +1,6 @@
 package com.innoura.legalEase.controller;
 
-import com.innoura.legalEase.service.MachineUploadHelper;
+import com.innoura.legalEase.helper.MachineUploadHelper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;

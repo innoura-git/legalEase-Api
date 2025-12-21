@@ -29,21 +29,7 @@ public class SummaryController {
     ) {
         try {
             String summaryHtml = apiService.getSummaryForFile(caseId, fileType);
-
-            // If the service already returns HTML, keep it as-is.
-            // Otherwise wrap it in simple HTML tags:
-            String htmlPage = """
-                    <html>
-                        <head>
-                            <title>Summary</title>
-                        </head>
-                        <body>
-                            %s
-                        </body>
-                    </html>
-                    """.formatted(summaryHtml);
-
-            return ResponseEntity.ok(htmlPage);
+            return ResponseEntity.ok(summaryHtml);
         }
         catch (Exception e)
         {

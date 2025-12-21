@@ -18,6 +18,6 @@ public class FileDetail
     private String caseId;
     private FileType fileType;
     private String fullContent;
-    private String summarizedContent;
+    private Summary summarizedContent;
     private String filePath;
 }
