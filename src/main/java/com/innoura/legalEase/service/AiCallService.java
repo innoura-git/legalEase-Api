@@ -127,6 +127,7 @@ public class AiCallService
     public String getImageResponse(
             FileContainerDto fileContainer,
             Prompt prompt,
+            String question,
             String filePath,
             String mimeType) throws Exception
     {
@@ -167,7 +168,7 @@ public class AiCallService
                 // text block
                 content.add(Map.of(
                         "type", "text",
-                        "text", prompt.getSystemPrompt()
+                        "text", prompt.getSystemPrompt() + "\n" + question
                 ));
 
                 // image block

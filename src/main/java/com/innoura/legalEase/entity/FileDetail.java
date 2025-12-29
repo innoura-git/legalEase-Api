@@ -20,4 +20,5 @@ public class FileDetail
     private String fullContent;
     private Summary summarizedContent;
     private String filePath;
+    private String mimeType;
 }

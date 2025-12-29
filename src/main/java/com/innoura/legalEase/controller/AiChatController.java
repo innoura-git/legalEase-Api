@@ -20,7 +20,9 @@ public class AiChatController
 
     @PostMapping("/chat")
     public ResponseEntity<String> getAiChat(@RequestParam("caseId") String caseId, @RequestParam("fileType")FileType fileType, @RequestBody String question)
+            throws Exception
     {
+
         String response = chatService.getAnswer(caseId,fileType,question);
         return ResponseEntity.ok(response);
     }

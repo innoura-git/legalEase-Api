@@ -295,7 +295,8 @@ public class FileProcessService
         fileDetail.setCaseId(fileContainer.getCaseId())
                 .setFilePath(filePath)
                 .setFileType(FileType.IMAGE)
-                .setSummarizedContent(imageSummary);
+                .setSummarizedContent(imageSummary)
+                .setMimeType(mimeType);
         dbService.save(fileDetail, FileDetail.class.getSimpleName());
         log.info("image file content saved for the caseId :{}", fileContainer.getCaseId());
 
