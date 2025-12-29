@@ -13,7 +13,7 @@ public class ApiHelper
             return;
         }
 
-        html.append("<h3>").append(title).append("</h3>");
+        html.append("<h3><b>").append(title).append("</b></h3>");
         html.append("<ul>");
 
         for (String item : items) {
