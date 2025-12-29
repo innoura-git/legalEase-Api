@@ -2,12 +2,15 @@ package com.innoura.legalEase.service;
 
 import com.innoura.legalEase.dbservice.DbService;
 import com.innoura.legalEase.dto.FileContainerDto;
+import com.innoura.legalEase.dto.FileMetaData;
 import com.innoura.legalEase.entity.CaseDetail;
 import com.innoura.legalEase.entity.ExceptionLog;
 import com.innoura.legalEase.entity.FileDetail;
+import com.innoura.legalEase.entity.HearingDetails;
 import com.innoura.legalEase.entity.Prompt;
 import com.innoura.legalEase.entity.Summary;
 import com.innoura.legalEase.enums.FileType;
+import com.innoura.legalEase.helper.FileProcessHelper;
 import com.innoura.legalEase.helper.ResponseProcessHelper;
 import com.innoura.legalEase.utils.FileContainerUtils;
 import lombok.extern.slf4j.Slf4j;
@@ -23,6 +26,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
@@ -37,6 +41,8 @@ public class FileProcessService
     private final AiCallService aiCallService;
     private final ResponseProcessHelper responseProcessHelper;
     private final AzureSpeechService azureSpeechService;
+    private final FileProcessHelper fileProcessHelper;
+    private final HearingService hearingService;
 
     @Value("${file.upload.path}")
     private String fileUploadPath;
@@ -49,7 +55,7 @@ public class FileProcessService
     );
     private static final Tika tika = new Tika();
 
-    public FileProcessService(DbService dbService, FileContainerUtils fileContainerUtils, ContentExtractionService contentExtractionService, AiCallService aiCallService, ResponseProcessHelper responseProcessHelper,AzureSpeechService azureSpeechService)
+    public FileProcessService(DbService dbService, FileContainerUtils fileContainerUtils, ContentExtractionService contentExtractionService, AiCallService aiCallService, ResponseProcessHelper responseProcessHelper, AzureSpeechService azureSpeechService, FileProcessHelper fileProcessHelper, HearingService hearingService)
     {
         this.dbService = dbService;
         this.fileContainerUtils = fileContainerUtils;
@@ -57,14 +63,29 @@ public class FileProcessService
         this.aiCallService = aiCallService;
         this.responseProcessHelper = responseProcessHelper;
         this.azureSpeechService = azureSpeechService;
+        this.fileProcessHelper = fileProcessHelper;
+        this.hearingService = hearingService;
     }
 
-    public void saveFiles(String caseId, MultipartFile excelFile, MultipartFile audioFile, 
-                         MultipartFile image, MultipartFile pdfFile) throws IOException {
+    public void saveFiles(String caseId, MultipartFile excelFile, MultipartFile audioFile,
+            MultipartFile image, MultipartFile pdfFile, String hearingId)
+            throws IOException
+    {
         log.info("Uploading files for caseId: {}", caseId);
+
+        String audioFilePath = null;
+        String pdfFilePath = null;
+        String imageFilePath = null;
+        String excelFilePath = null;
 
         // Find the CaseDetail by caseId (patientId)
         CaseDetail caseDetail = dbService.findById(caseId, CaseDetail.class);
+        HearingDetails hearingDetails = dbService.findById(hearingId, HearingDetails.class);
+        if (hearingId == null || hearingId.isEmpty()) {
+            hearingDetails = hearingService.createInitialHearing(caseDetail);
+        }
+        List<FileMetaData> fileMetaDataList = new ArrayList<>();
+
         if (caseDetail == null) {
             log.error("CaseDetail not found for caseId: {}", caseId);
             throw new IllegalArgumentException("CaseDetail not found for caseId: " + caseId);
@@ -77,25 +98,25 @@ public class FileProcessService
         }
 
         if (excelFile != null && !excelFile.isEmpty()) {
-            String excelFilePath = saveFile(excelFile, caseId, "excel", uploadPath);
+            excelFilePath = saveFile(excelFile, caseId, "excel", uploadPath, hearingDetails.getHearingId());
             caseDetail.setExcelFilePaths(excelFilePath);
             log.info("Saved excel file: {}", excelFilePath);
         }
 
         if (audioFile != null && !audioFile.isEmpty()) {
-            String audioFilePath = saveFile(audioFile, caseId, "audio", uploadPath);
+            audioFilePath = saveFile(audioFile, caseId, "audio", uploadPath, hearingDetails.getHearingId());
             caseDetail.setAudioFilePaths(audioFilePath);
             log.info("Saved audio file: {}", audioFilePath);
         }
 
         if (image != null && !image.isEmpty()) {
-            String imageFilePath = saveFile(image, caseId, "image", uploadPath);
+            imageFilePath = saveFile(image, caseId, "image", uploadPath, hearingDetails.getHearingId());
             caseDetail.setImageFilePaths(imageFilePath);
             log.info("Saved image file: {}", imageFilePath);
         }
 
         if (pdfFile != null && !pdfFile.isEmpty()) {
-            String pdfFilePath = saveFile(pdfFile, caseId, "pdf", uploadPath);
+            pdfFilePath = saveFile(pdfFile, caseId, "pdf", uploadPath, hearingDetails.getHearingId());
             caseDetail.setPdfFilePaths(pdfFilePath);
             log.info("Saved pdf file: {}", pdfFilePath);
         }
@@ -105,10 +126,6 @@ public class FileProcessService
         log.info("Successfully updated CaseDetail for caseId: {}", caseId);
         // Construct file containers and process them asynchronously using parallel streams
         try {
-            String audioFilePath = null;
-            String pdfFilePath = null;
-            String imageFilePath = null;
-            String excelFilePath = null;
 
             FileContainerDto audioFileContainer = null;
             FileContainerDto pdfFileContainer = null;
@@ -116,22 +133,29 @@ public class FileProcessService
             FileContainerDto excelFileContainer = null;
 
             if (audioFile != null && !audioFile.isEmpty()) {
-                audioFileContainer = fileContainerUtils.constructFileContainer(audioFile, caseId);
-                audioFilePath = caseDetail.getAudioFilePaths();
+                audioFileContainer = fileContainerUtils.constructFileContainer(audioFile, caseId, hearingDetails.getHearingId());
+                FileMetaData fileMetaDataForAudio = fileProcessHelper.createFileMetadata(audioFileContainer, audioFilePath, FileType.AUDIO);
+                fileMetaDataList.add(fileMetaDataForAudio);
             }
             if (pdfFile != null && !pdfFile.isEmpty()) {
-                pdfFileContainer = fileContainerUtils.constructFileContainer(pdfFile, caseId);
-                pdfFilePath = caseDetail.getPdfFilePaths();
+                pdfFileContainer = fileContainerUtils.constructFileContainer(pdfFile, caseId, hearingDetails.getHearingId());
+                FileMetaData fileMetaDataForPdf = fileProcessHelper.createFileMetadata(pdfFileContainer, pdfFilePath, FileType.PDF);
+                fileMetaDataList.add(fileMetaDataForPdf);
             }
             if (image != null && !image.isEmpty()) {
-                imageFileContainer = fileContainerUtils.constructFileContainer(image, caseId);
-                imageFilePath = caseDetail.getImageFilePaths();
+                imageFileContainer = fileContainerUtils.constructFileContainer(image, caseId, hearingDetails.getHearingId());
+                FileMetaData fileMetaDataForImage = fileProcessHelper.createFileMetadata(imageFileContainer, imageFilePath, FileType.IMAGE);
+                fileMetaDataList.add(fileMetaDataForImage);
             }
             if (excelFile != null && !excelFile.isEmpty()) {
-                excelFileContainer = fileContainerUtils.constructFileContainer(excelFile, caseId);
-                excelFilePath = caseDetail.getExcelFilePaths();
+                excelFileContainer = fileContainerUtils.constructFileContainer(excelFile, caseId, hearingDetails.getHearingId());
+                FileMetaData fileMetaDataForExcel = fileProcessHelper.createFileMetadata(excelFileContainer, excelFilePath, FileType.EXCEL);
+                fileMetaDataList.add(fileMetaDataForExcel);
             }
-
+            //save hearing details
+            hearingDetails.setFileMetaData(fileMetaDataList);
+            dbService.save(hearingDetails);
+            //process saved files
             processAsyncFile(pdfFileContainer, pdfFilePath, excelFileContainer, excelFilePath,
                     audioFileContainer, audioFilePath, imageFileContainer, imageFilePath);
         } catch (Exception e) {
@@ -139,13 +163,15 @@ public class FileProcessService
         }
     }
 
-    private String saveFile(MultipartFile file, String caseId, String fileType, Path uploadPath) throws IOException {
+    private String saveFile(MultipartFile file, String caseId, String fileType, Path uploadPath, String hearingId)
+            throws IOException
+    {
         String originalFilename = file.getOriginalFilename();
         if (originalFilename == null || originalFilename.isEmpty()) {
             originalFilename = fileType + ".file";
         }
 
-        String filename = caseId + "_" + fileType + "_" + originalFilename;
+        String filename = caseId + "_" + hearingId + "_" + fileType + "_" + originalFilename;
         Path filePath = uploadPath.resolve(filename);
 
         Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
@@ -227,6 +253,8 @@ public class FileProcessService
         Summary fileSummary = responseProcessHelper.processAiResponse(summarizedContent);
         FileDetail fileDetail = new FileDetail();
         fileDetail.setCaseId(fileContainer.getCaseId())
+                .setHearingId(fileContainer.getHearingId())
+                .setFileId(fileContainer.getFileId())
                 .setFilePath(filePath)
                 .setFileType(FileType.PDF)
                 .setFullContent(pdfFileContent)
@@ -244,6 +272,8 @@ public class FileProcessService
         Summary fileSummary = responseProcessHelper.processAiResponse(summarizedContent);
         FileDetail fileDetail = new FileDetail();
         fileDetail.setCaseId(fileContainer.getCaseId())
+                .setHearingId(fileContainer.getHearingId())
+                .setFileId(fileContainer.getFileId())
                 .setFilePath(filePath)
                 .setFileType(FileType.EXCEL)
                 .setFullContent(excelFileContent)
@@ -269,6 +299,8 @@ public class FileProcessService
         Summary summarizedContent = aiCallService.getTextSummary(fullMp3Content, promptForSpeechTextSummary, fileContainer.getCaseId());
         FileDetail fileDetail = new FileDetail();
         fileDetail.setCaseId(fileContainer.getCaseId())
+                .setHearingId(fileContainer.getHearingId())
+                .setFileId(fileContainer.getFileId())
                 .setFilePath(filePath)
                 .setFileType(FileType.AUDIO)
                 .setFullContent(fullMp3Content)
@@ -293,6 +325,8 @@ public class FileProcessService
 
         FileDetail fileDetail = new FileDetail();
         fileDetail.setCaseId(fileContainer.getCaseId())
+                .setHearingId(fileContainer.getHearingId())
+                .setFileId(fileContainer.getFileId())
                 .setFilePath(filePath)
                 .setFileType(FileType.IMAGE)
                 .setSummarizedContent(imageSummary)

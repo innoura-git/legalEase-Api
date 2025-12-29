@@ -18,7 +18,6 @@ import org.springframework.stereotype.Service;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -71,11 +70,12 @@ public class ApiService
         return report;
     }
 
-    public FileDownloadResult getFileForDownload(String caseId, FileType fileType) {
+    public FileDownloadResult getFileForDownload(String caseId, FileType fileType, String hearingId)
+    {
         log.info("Getting file for download - caseId: {}, fileType: {}", caseId, fileType);
 
         Query query = new Query(Criteria.where(FileDetail.Fields.caseId).is(caseId)
-                .and(FileDetail.Fields.fileType).is(fileType));
+                .and(FileDetail.Fields.fileType).is(fileType).and(FileDetail.Fields.hearingId).is(hearingId));
         FileDetail fileDetail = dbService.findOne(query, FileDetail.class, FileDetail.class.getSimpleName());
 
         if (fileDetail == null) {
@@ -118,16 +118,6 @@ public class ApiService
         return new FileDownloadResult(resource, contentType, filename);
     }
     
-    private String getFilePathByType(CaseDetail caseDetail, FileType fileType) {
-        return switch (fileType) {
-            case PDF -> caseDetail.getPdfFilePaths();
-            case EXCEL -> caseDetail.getExcelFilePaths();
-            case AUDIO -> caseDetail.getAudioFilePaths();
-            case IMAGE -> caseDetail.getImageFilePaths();
-            default -> null;
-        };
-    }
-    
     private String getContentTypeByFileType(FileType fileType) {
         return switch (fileType) {
             case PDF -> "application/pdf";
@@ -138,10 +128,12 @@ public class ApiService
         };
     }
 
-    public String getSummaryForFile(String caseId, FileType fileType) {
+    public String getSummaryForFile(String caseId, FileType fileType, String hearingId)
+    {
         Query query = new Query(
                 Criteria.where(FileDetail.Fields.caseId).is(caseId)
                         .and(FileDetail.Fields.fileType).is(fileType)
+                        .and(FileDetail.Fields.hearingId).is(hearingId)
         );
 
         FileDetail fileDetail = dbService.findOne(

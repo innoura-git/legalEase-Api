@@ -3,7 +3,6 @@ package com.innoura.legalEase.controller;
 import com.innoura.legalEase.enums.FileType;
 import com.innoura.legalEase.service.ChatService;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -19,11 +18,10 @@ public class AiChatController
     public AiChatController(ChatService chatService) {this.chatService = chatService;}
 
     @PostMapping("/chat")
-    public ResponseEntity<String> getAiChat(@RequestParam("caseId") String caseId, @RequestParam("fileType")FileType fileType, @RequestBody String question)
+    public ResponseEntity<String> getAiChat(@RequestParam("caseId") String caseId, @RequestParam("hearingId") String hearingId, @RequestParam("fileType") FileType fileType, @RequestBody String question)
             throws Exception
     {
-
-        String response = chatService.getAnswer(caseId,fileType,question);
+        String response = chatService.getAnswer(caseId, fileType, question, hearingId);
         return ResponseEntity.ok(response);
     }
 }

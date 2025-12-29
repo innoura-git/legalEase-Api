@@ -1,26 +1,26 @@
 package com.innoura.legalEase.entity;
 
-import com.innoura.legalEase.enums.FileType;
+import com.innoura.legalEase.dto.FileMetaData;
 import lombok.Data;
-import lombok.experimental.Accessors;
+import lombok.NoArgsConstructor;
 import lombok.experimental.FieldNameConstants;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
+import java.time.LocalDate;
+import java.util.List;
+
 @Data
 @Document
+@NoArgsConstructor
 @FieldNameConstants
-@Accessors(chain = true)
-public class FileDetail
+public class HearingDetails
 {
     @Id
     private String id;
     private String caseId;
     private String hearingId;
-    private String fileId;
-    private FileType fileType;
-    private String fullContent;
-    private Summary summarizedContent;
-    private String filePath;
-    private String mimeType;
+    private String hearingName;
+    private LocalDate hearingDate;
+    private List<FileMetaData> fileMetaData;
 }

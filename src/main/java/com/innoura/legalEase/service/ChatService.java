@@ -31,7 +31,7 @@ public class ChatService
         this.aiCallService = aiCallService;
     }
 
-    public String getAnswer(String caseId, FileType fileType, String question)
+    public String getAnswer(String caseId, FileType fileType, String question, String hearingId)
             throws Exception
     {
         Query query = new Query(Criteria.where(Prompt.Fields.fileType).is(FileType.QA));
@@ -45,6 +45,7 @@ public class ChatService
         List<Criteria> criteriaList = new ArrayList<>();
         criteriaList.add(Criteria.where(FileDetail.Fields.caseId).is(caseId));
         criteriaList.add(Criteria.where(FileDetail.Fields.fileType).is(fileType));
+        criteriaList.add(Criteria.where(FileDetail.Fields.hearingId).is(hearingId));
         query = new Query(
                 new Criteria().andOperator(criteriaList.toArray(new Criteria[0]))
         );
@@ -57,12 +58,12 @@ public class ChatService
             return null;
         }
 
-        if (fileType.name().equals("IMAGE"))
+        if (fileType.name().equals(FileType.IMAGE.name()))
         {
             FileContainerDto fileContainerDto = getFileForDownload(caseId,fileType);
             return aiCallService.getImageResponse(fileContainerDto,prompt,question, fileDetail.getFilePath(),fileDetail.getMimeType());
         }
-     return  aiCallService.getGptResponse("content" + fileDetail.getFullContent() + "\n Question : \n" +question, prompt, caseId);
+        return aiCallService.getGptResponse("content" + fileDetail.getFullContent() + "\n Question : \n" + question, prompt, caseId);
     }
 
     public FileContainerDto getFileForDownload(String caseId, FileType fileType) {

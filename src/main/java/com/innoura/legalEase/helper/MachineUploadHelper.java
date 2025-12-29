@@ -24,7 +24,7 @@ public class MachineUploadHelper
     public MachineUploadHelper(DbService dbService) {this.dbService = dbService;}
 
     public void uploadFileToMachine(String caseId, MultipartFile excelFile, MultipartFile audioFile,
-            MultipartFile image, MultipartFile pdfFile)
+            MultipartFile image, MultipartFile pdfFile, String hearingId)
             throws IOException
     {
         CaseDetail caseDetail = dbService.findById(caseId, CaseDetail.class);
@@ -40,32 +40,35 @@ public class MachineUploadHelper
         }
 
         if (excelFile != null && !excelFile.isEmpty()) {
-            String excelFilePath = saveFile(excelFile, caseId, "excel", uploadPath);
+            String excelFilePath = saveFile(excelFile, caseId, "excel", uploadPath, hearingId);
             log.info("Saved excel file: {}", excelFilePath);
         }
 
         if (audioFile != null && !audioFile.isEmpty()) {
-            String audioFilePath = saveFile(audioFile, caseId, "audio", uploadPath);
+            String audioFilePath = saveFile(audioFile, caseId, "audio", uploadPath, hearingId);
             log.info("Saved audio file: {}", audioFilePath);
         }
 
         if (image != null && !image.isEmpty()) {
-            String imageFilePath = saveFile(image, caseId, "image", uploadPath);
+            String imageFilePath = saveFile(image, caseId, "image", uploadPath, hearingId);
             log.info("Saved image file: {}", imageFilePath);
         }
 
         if (pdfFile != null && !pdfFile.isEmpty()) {
-            String pdfFilePath = saveFile(pdfFile, caseId, "pdf", uploadPath);
+            String pdfFilePath = saveFile(pdfFile, caseId, "pdf", uploadPath, hearingId);
             log.info("Saved pdf file: {}", pdfFilePath);
         }
     }
-    private String saveFile(MultipartFile file, String caseId, String fileType, Path uploadPath) throws IOException {
+
+    private String saveFile(MultipartFile file, String caseId, String fileType, Path uploadPath, String hearingId)
+            throws IOException
+    {
         String originalFilename = file.getOriginalFilename();
         if (originalFilename == null || originalFilename.isEmpty()) {
             originalFilename = fileType + ".file";
         }
 
-        String filename = caseId + "_" + fileType + "_" + originalFilename;
+        String filename = caseId + "_" + hearingId + "_" + fileType + "_" + originalFilename;
         Path filePath = uploadPath.resolve(filename);
 
         Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);

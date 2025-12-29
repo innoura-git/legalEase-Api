@@ -25,10 +25,13 @@ public class SummaryController {
     @GetMapping(value = "/get/summary", produces = "text/html; charset=UTF-8")
     public ResponseEntity<String> getSummaryForFile(
             @RequestParam("caseId") String caseId,
-            @RequestParam("fileType") FileType fileType
-    ) {
+            @RequestParam("fileType") FileType fileType,
+            @RequestParam(value = "hearingId") String hearingId
+
+    )
+    {
         try {
-            String summaryHtml = apiService.getSummaryForFile(caseId, fileType);
+            String summaryHtml = apiService.getSummaryForFile(caseId, fileType, hearingId);
             return ResponseEntity.ok(summaryHtml);
         }
         catch (Exception e)

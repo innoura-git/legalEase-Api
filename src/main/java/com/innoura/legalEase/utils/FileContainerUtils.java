@@ -5,14 +5,17 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.util.UUID;
 
 @Service
 public class FileContainerUtils
 {
-    public FileContainerDto constructFileContainer(MultipartFile file, String caseId) throws IOException
+    public FileContainerDto constructFileContainer(MultipartFile file, String caseId, String hearingId)
+            throws IOException
     {
         FileContainerDto fileContainer = new FileContainerDto();
-        
+        fileContainer.setFileId(UUID.randomUUID().toString());
+        fileContainer.setHearingId(hearingId);
         // Set the file name
         String fileName = file.getOriginalFilename();
         if (fileName == null || fileName.isEmpty()) {
