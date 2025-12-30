@@ -30,8 +30,9 @@ public class HearingController
             if (createHearingDto.getCaseId() == null) {
                 throw new IllegalArgumentException("CaseId cannot be null");
             }
-            hearingService.createHearing(createHearingDto);
-            return ResponseEntity.ok("Hearing Created Successfully");
+            HearingDetails hearingDetails = hearingService.createHearing(createHearingDto);
+            HearingDetailsDto hearingDetailsDto = new HearingDetailsDto(hearingDetails);
+            return ResponseEntity.ok(hearingDetailsDto);
         }
         catch (Exception e)
         {
