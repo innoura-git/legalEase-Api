@@ -1,5 +1,6 @@
 package com.innoura.legalEase.helper;
 
+import com.innoura.legalEase.enums.FileType;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -35,6 +36,17 @@ public class ApiHelper
                 .replace(">", "&gt;")
                 .replace("\"", "&quot;")
                 .replace("'", "&#39;");
+    }
+
+    public String getEvidenceType(FileType fileType)
+    {
+        return switch (fileType) {
+            case PDF -> "PDF EVIDENCE";
+            case EXCEL -> "EXCEL EVIDENCE";
+            case AUDIO -> "AUDIO EVIDENCE";
+            case IMAGE -> "IMAGE EVIDENCE";
+            default -> "";
+        };
     }
 
 

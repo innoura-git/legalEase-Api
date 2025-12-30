@@ -5,6 +5,7 @@ import com.innoura.legalEase.dto.CreateHearingDto;
 import com.innoura.legalEase.dto.HearingDetailsDto;
 import com.innoura.legalEase.entity.CaseDetail;
 import com.innoura.legalEase.entity.HearingDetails;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.stereotype.Service;
@@ -13,6 +14,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 
+@Slf4j
 @Service
 public class HearingService
 {
@@ -47,12 +49,14 @@ public class HearingService
         List<HearingDetailsDto> hearingDetailsDtoList =
                 dbService.find(query, HearingDetailsDto.class, "HearingDetails");
 
+        log.info("Size of hearing details dto list is : {}",hearingDetailsDtoList.size());
+
         List<HearingDetailsDto> sortedHearingDetailsDtoList =
                 hearingDetailsDtoList.stream()
                         .sorted(Comparator.comparing(HearingDetailsDto::getHearingDate).reversed())
                         .toList();
 
-
+        log.info("Size of hearing details dto list is : {}",hearingDetailsDtoList.size());
         if (hearingDetailsDtoList.isEmpty()) {
             throw new IllegalArgumentException("No Hearing Found for caseId, Hearing should not be empty");
         }

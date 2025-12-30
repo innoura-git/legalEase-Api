@@ -2,9 +2,12 @@ package com.innoura.legalEase.service;
 
 import com.innoura.legalEase.dbservice.DbService;
 import com.innoura.legalEase.dto.CaseReport;
+import com.innoura.legalEase.dto.EvidenceDto;
 import com.innoura.legalEase.dto.FileDownloadResult;
+import com.innoura.legalEase.dto.HistoryDto;
 import com.innoura.legalEase.entity.CaseDetail;
 import com.innoura.legalEase.entity.FileDetail;
+import com.innoura.legalEase.entity.HearingDetails;
 import com.innoura.legalEase.entity.Summary;
 import com.innoura.legalEase.enums.FileType;
 import com.innoura.legalEase.helper.ApiHelper;
@@ -19,13 +22,20 @@ import org.springframework.stereotype.Service;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @Slf4j
 @Service
 public class ApiService
 {
+    private static final String hearingNameHeader = "Hearing Name : ";
+    private static final String hearingDateHeader = "Hearing Date : ";
+    private static final String evidenceTypeHeader = "Evidence Type : ";
     private final DbService dbService;
     private final ApiHelper apiHelper;
 
@@ -161,6 +171,72 @@ public class ApiService
 
         return !html.isEmpty() ? html.toString() : "<p>No summary available.</p>";
     }
+
+    public List<HistoryDto> getHistorySections(String caseId)
+    {
+
+        // 1️⃣ Fetch hearings
+        Query hearingQuery = new Query(
+                Criteria.where(HearingDetails.Fields.caseId).is(caseId)
+        );
+        List<HearingDetails> hearingDetailsList =
+                dbService.find(hearingQuery, HearingDetails.class);
+
+        // 2️⃣ Extract hearingIds
+        List<String> hearingIds = hearingDetailsList.stream()
+                .map(HearingDetails::getHearingId)
+                .filter(Objects::nonNull)
+                .toList();
+
+        log.info("Hearing Id : {}",hearingIds.toString());
+        // 3️⃣ Fetch all files for those hearings
+        Query fileDetailQuery = new Query(
+                Criteria.where(FileDetail.Fields.hearingId).in(hearingIds)
+        );
+
+        List<FileDetail> fileDetailList =
+                dbService.find(fileDetailQuery, FileDetail.class);
+
+        // 4️⃣ Group files by hearingId
+        Map<String, List<FileDetail>> filesByHearingId =
+                fileDetailList.stream()
+                        .filter(fd -> fd.getHearingId() != null)
+                        .collect(Collectors.groupingBy(FileDetail::getHearingId));
+
+        List<HistoryDto> historyDtoList = new ArrayList<>();
+        for (HearingDetails hearing : hearingDetailsList) {
+
+            HistoryDto historyDto = new HistoryDto();
+            historyDto.setHearingName(hearing.getHearingName());
+            historyDto.setHearingDate(hearing.getHearingDate());
+            historyDto.setEvidenceDtoList(new ArrayList<>());
+
+            List<FileDetail> files =
+                    filesByHearingId.getOrDefault(
+                            hearing.getHearingId(),
+                            Collections.emptyList()
+                    );
+
+            for (FileDetail file : files) {
+
+                if (file.getSummarizedContent() == null) {
+                    continue;
+                }
+                if (file.getSummarizedContent().getIpcSections() == null || file.getSummarizedContent().getIpcSections().isEmpty()) {
+                    continue;
+                }
+
+                String evidenceName = apiHelper.getEvidenceType(file.getFileType());
+                EvidenceDto evidenceDto = new EvidenceDto();
+                evidenceDto.setEvidenceName(evidenceName);
+                evidenceDto.setIpcSections(file.getSummarizedContent().getIpcSections());
+                historyDto.getEvidenceDtoList().add(evidenceDto);
+            }
+            historyDtoList.add(historyDto);
+        }
+        return historyDtoList;
+    }
+
 
 
 }
