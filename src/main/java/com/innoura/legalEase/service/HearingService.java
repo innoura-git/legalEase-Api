@@ -9,6 +9,7 @@ import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.stereotype.Service;
 
+import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 
@@ -46,10 +47,16 @@ public class HearingService
         List<HearingDetailsDto> hearingDetailsDtoList =
                 dbService.find(query, HearingDetailsDto.class, "HearingDetails");
 
+        List<HearingDetailsDto> sortedHearingDetailsDtoList =
+                hearingDetailsDtoList.stream()
+                        .sorted(Comparator.comparing(HearingDetailsDto::getHearingDate).reversed())
+                        .toList();
+
+
         if (hearingDetailsDtoList.isEmpty()) {
             throw new IllegalArgumentException("No Hearing Found for caseId, Hearing should not be empty");
         }
-        return hearingDetailsDtoList;
+        return sortedHearingDetailsDtoList;
     }
 
     public HearingDetails createInitialHearing(CaseDetail caseDetail)

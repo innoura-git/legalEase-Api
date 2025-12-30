@@ -11,6 +11,7 @@ import com.innoura.legalEase.helper.ApiHelper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.stereotype.Service;
@@ -36,7 +37,10 @@ public class ApiService
 
     public List<CaseReport> getAllCaseReport()
     {
-        List<CaseDetail> caseDetails = dbService.findAll(CaseDetail.class);
+        Query query = new Query()
+                .with(Sort.by(Sort.Direction.DESC, "createdDate"));
+
+        List<CaseDetail> caseDetails = dbService.find(query,CaseDetail.class);
         
         return caseDetails.stream()
                 .map(this::mapToCaseReport)

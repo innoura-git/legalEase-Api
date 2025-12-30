@@ -22,6 +22,9 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -45,6 +48,7 @@ public class CaseController
     {
         try{
             caseDetail.setCaseId(UUID.randomUUID().toString());
+            caseDetail.setCreatedDate(Instant.now());
             log.info("Saving case detail for patientId: {}", caseDetail.getCaseId());
             CaseDetail savedCaseDetail = dbService.save(caseDetail);
             log.info("Successfully saved case detail for patientId: {}", savedCaseDetail.getCaseId());
