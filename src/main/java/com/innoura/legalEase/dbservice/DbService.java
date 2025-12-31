@@ -1,11 +1,13 @@
 package com.innoura.legalEase.dbservice;
 
 import com.innoura.legalEase.entity.CaseDetail;
+import com.innoura.legalEase.entity.HearingDetails;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.stereotype.Service;
+
 import java.util.List;
 
 @Service
@@ -73,7 +75,11 @@ public class DbService {
         String idFieldName;
         if (clazz == CaseDetail.class) {
             idFieldName = CaseDetail.Fields.caseId;
-        } else {
+        }
+        else if (clazz == HearingDetails.class) {
+            idFieldName = HearingDetails.Fields.hearingId;
+        }
+        else {
             // Default to "id" for other entities, or you can extend this logic
             idFieldName = "id";
         }

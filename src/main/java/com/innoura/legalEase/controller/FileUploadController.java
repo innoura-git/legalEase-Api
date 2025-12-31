@@ -24,13 +24,14 @@ public class FileUploadController
     @PostMapping("/upload/files")
     public ResponseEntity<String> saveFiles(
             @RequestParam("caseId") String caseId,
+            @RequestParam(value = "hearingId") String hearingId,
             @RequestParam(value = "excelFile", required = false) MultipartFile excelFile,
             @RequestParam(value = "audioFile", required = false) MultipartFile audioFile,
             @RequestParam(value = "image", required = false) MultipartFile image,
             @RequestParam(value = "pdfFile", required = false) MultipartFile pdfFile)
     {
         try {
-            machineUploadHelper.uploadFileToMachine(caseId, excelFile, audioFile, image, pdfFile);
+            machineUploadHelper.uploadFileToMachine(caseId, excelFile, audioFile, image, pdfFile,hearingId);
             return ResponseEntity.ok("Files uploaded successfully for caseId: " + caseId);
         }
         catch (Exception e) {

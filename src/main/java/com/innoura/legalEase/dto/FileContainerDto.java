@@ -8,6 +8,8 @@ import lombok.experimental.FieldNameConstants;
 public class FileContainerDto
 {
     private String caseId;
+    private String fileId;
+    private String hearingId;
     private String fileName;
     private byte[] fileByte;
 }

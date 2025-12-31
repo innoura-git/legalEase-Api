@@ -22,6 +22,9 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -45,6 +48,7 @@ public class CaseController
     {
         try{
             caseDetail.setCaseId(UUID.randomUUID().toString());
+            caseDetail.setCreatedDate(Instant.now());
             log.info("Saving case detail for patientId: {}", caseDetail.getCaseId());
             CaseDetail savedCaseDetail = dbService.save(caseDetail);
             log.info("Successfully saved case detail for patientId: {}", savedCaseDetail.getCaseId());
@@ -61,13 +65,14 @@ public class CaseController
     @PostMapping("/upload/files")
     public ResponseEntity<String> saveFiles(
             @RequestParam("caseId") String caseId,
+            @RequestParam(value = "hearingId", required = false) String hearingId,
             @RequestParam(value = "excelFile", required = false) MultipartFile excelFile,
             @RequestParam(value = "audioFile", required = false) MultipartFile audioFile,
             @RequestParam(value = "image", required = false) MultipartFile image,
             @RequestParam(value = "pdfFile", required = false) MultipartFile pdfFile)
     {
         try {
-            fileProcessService.saveFiles(caseId, excelFile, audioFile, image, pdfFile);
+            fileProcessService.saveFiles(caseId, excelFile, audioFile, image, pdfFile,hearingId);
             return ResponseEntity.ok("Files uploaded successfully for caseId: " + caseId);
         }
         catch (Exception e) {
@@ -99,12 +104,13 @@ public class CaseController
     @GetMapping("/download/file")
     public ResponseEntity<Resource> downloadFile(
             @RequestParam("caseId") String caseId,
-            @RequestParam("fileType") FileType fileType)
+            @RequestParam("fileType") FileType fileType,
+            @RequestParam("hearingId") String hearingId)
     {
         try {
             log.info("Downloading file for caseId: {}, fileType: {}", caseId, fileType);
-            
-            FileDownloadResult fileDownloadResult = apiService.getFileForDownload(caseId, fileType);
+
+            FileDownloadResult fileDownloadResult = apiService.getFileForDownload(caseId, fileType, hearingId);
             
             return ResponseEntity.ok()
                     .contentType(MediaType.parseMediaType(fileDownloadResult.getContentType()))
